@@ -1,7 +1,7 @@
 name: Build Meera AI APK
 
 on:
-  workflow_dispatch:        # GitHub > Actions > "Run workflow" button
+  workflow_dispatch:
   push:
     branches: [main, master]
 
@@ -22,12 +22,24 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      # Works whether settings.gradle.kts is in the repo root or inside a MeeraAI/ folder
+      # Agar project zip ki shakal me upload hua hai to khol do (zip ka naam kuch bhi ho)
+      - name: Unzip project (if uploaded as a zip)
+        run: |
+          for z in *.zip; do
+            [ -f "$z" ] && unzip -q -o "$z" -d _src
+          done
+          true
+
+      # Project folder khud dhoondho (root me ho, MeeraAI/ me ho, ya zip ke andar ho)
       - name: Find project folder
         id: proj
         run: |
-          f=$(find . -maxdepth 3 -name settings.gradle.kts -not -path "./.git/*" | head -n 1)
-          if [ -z "$f" ]; then echo "settings.gradle.kts not found"; exit 1; fi
+          f=$(find . -maxdepth 4 -name settings.gradle.kts -not -path "./.git/*" | head -n 1)
+          if [ -z "$f" ]; then
+            echo "settings.gradle.kts not found. Repo me ye files hain:"
+            find . -maxdepth 3 -not -path "./.git/*" | head -50
+            exit 1
+          fi
           d=$(dirname "$f")
           echo "Project folder: $d"
           echo "dir=$d" >> "$GITHUB_OUTPUT"
@@ -37,7 +49,6 @@ jobs:
           yes | sdkmanager --licenses > /dev/null || true
           sdkmanager "platforms;android-34" "build-tools;34.0.0"
 
-      # The repo has no gradle-wrapper.jar, so use Gradle 8.7 directly
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 8.7
